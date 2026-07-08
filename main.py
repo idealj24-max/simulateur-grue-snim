@@ -1,192 +1,162 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# 1. CONFIGURATION DE L'INTERFACE MOBILE
-st.set_page_config(page_title="Simulateur 3D Grue SNIM Pro", page_icon="🏗️", layout="centered")
+st.set_page_config(page_title="Simulateur Cockpit Grue SNIM", page_icon="🏗️", layout="centered")
 
 st.markdown("""
     <style>
     .main { background-color: #0b0f19; color: #f3f4f6; }
-    h1 { color: #f59e0b; text-align: center; font-family: 'Arial Black', sans-serif; font-size: 22px; margin-bottom: 0px; }
+    h1 { color: #f59e0b; text-align: center; font-family: 'Arial Black', sans-serif; font-size: 22px; }
     .stApp { background-color: #0b0f19; }
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h1>🏗️ SIMULATEUR GRUE 3D MULTI-VUES</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #94a3b8;'>Module d'évaluation pour les centres de formation SNIM & KINROSS</p>", unsafe_allow_html=True)
+st.markdown("<h1>🏗️ SIMULATEUR COCKPIT REALISTE TEREX / GROVE</h1>", unsafe_allow_html=True)
 
-# 2. CODE DE RENDU 3D NETTOYÉ SANS COMMENTAIRES INTERSTICES
-code_simulateur_graphique = """
+# CODE DU SIMULATEUR AVEC INTEGRATION DE TEXTURES ET TABLEAU DE BORD AVANCÉ
+code_simulateur_cockpit = """
 <!DOCTYPE html>
 <html>
 <head>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cloudflare.com"></script>
     <style>
         body { margin: 0; overflow: hidden; background-color: #0b0f19; font-family: sans-serif; }
-        #canvas-container { width: 100%; height: 380px; position: relative; border-radius: 12px; overflow: hidden; border: 2px solid #f59e0b; }
-        .controls-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px; background: #1e293b; border-radius: 12px; margin-top: 10px; }
-        .btn-joystick { background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%); color: white; border: none; padding: 12px; font-weight: bold; border-radius: 8px; font-size: 14px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); touch-action: manipulation; }
-        .btn-joystick:active { background: #0284c7; }
-        .btn-cam { background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%) !important; grid-column: span 2; }
-        .telemetry { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.85); color: #38bdf8; padding: 10px; border-radius: 6px; font-family: monospace; font-size: 11px; pointer-events: none; border: 1px solid #334155; line-height: 1.4; }
+        #canvas-container { width: 100%; height: 400px; position: relative; border-radius: 12px; overflow: hidden; border: 3px solid #f59e0b; }
+        .joystick-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px; background: #1e293b; border-radius: 12px; margin-top: 10px; }
+        .btn-mvt { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; border: none; padding: 15px; font-weight: bold; border-radius: 8px; font-size: 14px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); touch-action: manipulation; }
+        .btn-mvt:active { background: #d97706; }
     </style>
 </head>
 <body>
 
-    <div id="canvas-container">
-        <div class="telemetry">
-            📊 ÉCRAN DE BORD ORDINATEUR CEC<br>
-            ---------------------------<br>
-            • STATUT : <span id="status-display" style="color:#22c55e; font-weight:bold;">SÉCURISÉ</span><br>
-            • ANGLE DE FLÈCHE : <span id="angle-display">30</span>°<br>
-            • RELEVAGE CÂBLE : <span id="cable-display">0</span> cm
-        </div>
-    </div>
+    <div id="canvas-container"></div>
 
-    <div class="controls-panel">
-        <button class="btn-joystick" onclick="bougerFleche(0.015)">🕹️ LEVER LA FLÈCHE</button>
-        <button class="btn-joystick" onclick="bougerFleche(-0.015)">🕹️ BAISSER LA FLÈCHE</button>
-        <button class="btn-joystick" onclick="ajusterCable(-0.1)">🪝 ENROULER LE CÂBLE</button>
-        <button class="btn-joystick" onclick="ajusterCable(0.1)">🪝 DÉROULER LE CÂBLE</button>
-        <button class="btn-joystick btn-cam" onclick="changerCamera()">🎥 CHANGER DE VUE (CABINE / CHANTIER)</button>
+    <div class="joystick-layout">
+        <button class="btn-mvt" onclick="actionnerLevier('lever')">🕹️ POUSSER LEVIER GAUCHE (LEVER)</button>
+        <button class="btn-mvt" onclick="actionnerLevier('baisser')">🕹️ TIRER LEVIER GAUCHE (BAISSER)</button>
     </div>
 
     <script>
         const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0f172a);
+        
+        // Ajout d'un ciel réaliste en arrière-plan (Vue extérieure)
+        scene.background = new THREE.Color(0xbae6fd); // Ciel bleu clair de Nouadhibou
 
-        const camCabine = new THREE.PerspectiveCamera(65, container.clientWidth / 380, 0.1, 1000);
-        camCabine.position.set(0, 1.5, -0.2);
-
-        const camChantier = new THREE.PerspectiveCamera(65, container.clientWidth / 380, 0.1, 1000);
-        camChantier.position.set(7, 6, 8);
-        camChantier.lookAt(0, 3, -4);
-
-        let activeCamera = camCabine;
+        const camera = new THREE.PerspectiveCamera(60, container.clientWidth / 400, 0.1, 1000);
+        camera.position.set(0, 1.2, 0); // Position exacte des yeux du grutier au centre du cockpit
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(container.clientWidth, 380);
+        renderer.setSize(container.clientWidth, 400);
         container.appendChild(renderer.domElement);
 
-        const light = new THREE.AmbientLight(0xffffff, 0.8);
+        // LUMIÈRES D'AMBIANCE
+        const light = new THREE.AmbientLight(0xffffff, 0.9);
         scene.add(light);
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-        dirLight.position.set(10, 20, 10);
-        scene.add(dirLight);
 
-        const floorGeo = new THREE.PlaneGeometry(200, 200);
-        const floorMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 });
-        const floor = new THREE.Mesh(floorGeo, floorMat);
-        floor.rotation.x = -Math.PI / 2;
-        scene.add(floor);
+        // 1. LE DECOR EXTÉRIEUR (Chantier SNIM)
+        const groundGeo = new THREE.PlaneGeometry(500, 500);
+        const groundMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0 }); // Sol clair
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        scene.add(ground);
 
-        const cabineMat = new THREE.MeshStandardMaterial({ color: 0x1e293b });
-        const dashGeo = new THREE.BoxGeometry(1.6, 0.4, 0.5);
-        const dash = new THREE.Mesh(dashGeo, cabineMat);
-        dash.position.set(0, 0.9, -0.6);
+        // Ajouter des obstacles extérieurs visibles à travers la vitre (ex: conteneurs)
+        const boxGeo = new THREE.BoxGeometry(3, 3, 6);
+        const boxMat = new THREE.MeshStandardMaterial({ color: 0xef4444 });
+        const conteneur = new THREE.Mesh(boxGeo, boxMat);
+        conteneur.position.set(5, 1.5, -15);
+        scene.add(conteneur);
+
+        // 2. CONSTRUCIION DU COCKPIT RÉALISTE (Vue Intérieure)
+        const interiorMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5 });
+        const metalMat = new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.8 });
+
+        # Coque arrière et toit de la cabine
+        const cabineGeo = new THREE.BoxGeometry(2, 2.2, 2);
+        const cabineMesh = new THREE.Mesh(cabineGeo, new THREE.MeshStandardMaterial({ color: 0x0f172a, wireframe: true }));
+        cabineMesh.position.set(0, 1.1, 0);
+        scene.add(cabineMesh);
+
+        # VRAI TABLEAU DE BORD ARRONDIE (Console centrale)
+        const dashGeo = new THREE.CylinderGeometry(0.8, 0.8, 1.6, 24, 1, false, 0, Math.PI);
+        const dash = new THREE.Mesh(dashGeo, interiorMat);
+        dash.rotation.z = Math.PI / 2;
+        dash.rotation.x = Math.PI / 2;
+        dash.position.set(0, 0.7, -0.7);
         scene.add(dash);
 
-        const montantLGeo = new THREE.BoxGeometry(0.06, 2.5, 0.06);
-        const montantL = new THREE.Mesh(montantLGeo, cabineMat);
-        montantL.position.set(-0.75, 1.6, -0.7);
-        scene.add(montantL);
+        # ÉCRAN DE BORD LUMINEUX (CEC Numérique intégré au tableau de bord)
+        const screenGeo = new THREE.PlaneGeometry(0.4, 0.25);
+        const screenMat = new THREE.MeshBasicMaterial({ color: 0x0284c7 });
+        const ecranBord = new THREE.Mesh(screenGeo, screenMat);
+        ecranBord.position.set(0, 0.85, -0.68);
+        ecranBord.rotation.x = -0.2;
+        scene.add(ecranBord);
 
-        const montantR = montantL.clone();
-        montantR.position.set(0.75, 1.6, -0.7);
-        scene.add(montantR);
+        # LE VOLANT DE DIRECTION
+        const torusGeo = new THREE.TorusGeometry(0.18, 0.02, 8, 24);
+        const volant = new THREE.Mesh(torusGeo, metalMat);
+        volant.position.set(-0.3, 0.8, -0.55);
+        volant.rotation.x = 1.2;
+        scene.add(volant);
 
+        # LES DEUX MANETTES DE CONTROLE (Joysticks latéraux)
+        const joyBaseGeo = new THREE.BoxGeometry(0.15, 0.3, 0.3);
+        const joyBaseL = new THREE.Mesh(joyBaseGeo, interiorMat);
+        joyBaseL.position.set(-0.6, 0.6, -0.2);
+        scene.add(joyBaseL);
+
+        const joyBaseR = joyBaseL.clone();
+        joyBaseR.position.set(0.6, 0.6, -0.2);
+        scene.add(joyBaseR);
+
+        // Tiges des manettes
+        const stickGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.2);
+        const manetteG = new THREE.Mesh(stickGeo, metalMat);
+        manetteG.position.set(-0.6, 0.75, -0.2);
+        scene.add(manetteG);
+
+        // 3. LA FLÈCHE EXTÉRIEURE DE LA GRUE VISIBLE DEPUIS LA VITRE
         const pivotFleche = new THREE.Group();
-        pivotFleche.position.set(0, 1.8, -0.9);
+        pivotFleche.position.set(0, 1.5, -1.2);
         scene.add(pivotFleche);
 
-        const flecheGeo = new THREE.BoxGeometry(0.4, 0.4, 10);
-        const flecheMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.3 });
-        const flecheMesh = new THREE.Mesh(flecheGeo, flecheMat);
-        flecheMesh.position.set(0, 0, -5);
-        pivotFleche.add(flecheMesh);
+        const mainFleche = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 12), new THREE.MeshStandardMaterial({ color: 0xf59e0b }));
+        mainFleche.position.set(0, 0, -6);
+        pivotFleche.add(mainFleche);
 
-        const pivotCrochet = new THREE.Group();
-        pivotCrochet.position.set(0, 0, -10);
-        pivotFleche.add(pivotCrochet);
+        pivotFleche.rotation.x = -0.5;
 
-        let longueurCable = 3.0;
-        const cableGeo = new THREE.CylinderGeometry(0.02, 0.02, longueurCable, 8);
-        const cableMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8 });
-        const cableMesh = new THREE.Mesh(cableGeo, cableMat);
-        cableMesh.position.y = -longueurCable / 2;
-        pivotCrochet.add(cableMesh);
-
-        const crochetGeo = new THREE.TorusGeometry(0.15, 0.04, 8, 24, Math.PI);
-        const crochetMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8 });
-        const crochetMesh = new THREE.Mesh(crochetGeo, crochetMat);
-        crochetMesh.rotation.x = Math.PI;
-        crochetMesh.position.y = -longueurCable;
-        pivotCrochet.add(crochetMesh);
-
-        pivotFleche.rotation.x = -0.6;
-
+        // ANIMATION DU RENDU
         function animate() {
             requestAnimationFrame(animate);
-            pivotCrochet.quaternion.copy(pivotFleche.quaternion).invert();
-            renderer.render(scene, activeCamera);
+            renderer.render(scene, camera);
         }
         animate();
 
-        window.bougerFleche = function(valeur) {
-            let futurAngle = pivotFleche.rotation.x + valeur;
-            if (futurAngle < -0.25 && futurAngle > -1.35) {
-                pivotFleche.rotation.x = futurAngle;
-                let angleDegres = Math.round(Math.abs(pivotFleche.rotation.x) * (180 / Math.PI));
-                document.getElementById('angle-display').innerText = angleDegres;
-                analyserRisque(angleDegres);
+        // INTELLIGENCE DES COMMANDES TACTILES
+        window.actionnerLevier = function(direction) {
+            if (direction === 'lever' && pivotFleche.rotation.x > -1.3) {
+                pivotFleche.rotation.x -= 0.02;
+                manetteG.rotation.x = -0.3; // Inclinaison de la manette réaliste
+            } else if (direction === 'baisser' && pivotFleche.rotation.x < -0.2) {
+                pivotFleche.rotation.x += 0.02;
+                manetteG.rotation.x = 0.3;
             }
-        }
-
-        window.ajusterCable = function(valeur) {
-            if (longueurCable + valeur >= 1.0 && longueurCable + valeur <= 6.5) {
-                longueurCable += valeur;
-                cableMesh.scale.y = longueurCable / 3.0;
-                cableMesh.position.y = -longueurCable / 2;
-                crochetMesh.position.y = -longueurCable;
-                document.getElementById('cable-display').innerText = Math.round((longueurCable - 3) * 100);
-            }
-        }
-
-        window.changerCamera = function() {
-            if (activeCamera === camCabine) {
-                activeCamera = camChantier;
-            } else {
-                activeCamera = camCabine;
-            }
-        }
-
-        function analyserRisque(angle) {
-            const statusBox = document.getElementById('status-display');
-            if (angle < 30) {
-                statusBox.innerText = "🚨 ALARME SURCHARGE / BASCULEMENT !";
-                statusBox.style.color = "#ef4444";
-            } else if (angle < 45) {
-                statusBox.innerText = "⚠️ ATTENTION PORTEE LIMITE";
-                statusBox.style.color = "#eab308";
-            } else {
-                statusBox.innerText = "SÉCURISÉ";
-                statusBox.style.color = "#22c55e";
-            }
+            setTimeout(() => { manetteG.rotation.x = 0; }, 150); // Retour au point mort
         }
 
         window.addEventListener('resize', () => {
-            camCabine.aspect = container.clientWidth / 380;
-            camCabine.updateProjectionMatrix();
-            camChantier.aspect = container.clientWidth / 380;
-            camChantier.updateProjectionMatrix();
-            renderer.setSize(container.clientWidth, 380);
+            camera.aspect = container.clientWidth / 400;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, 400);
         });
     </script>
 </body>
 </html>
 """
 
-components.html(code_simulateur_graphique, height=480)
+components.html(code_simulateur_cockpit, height=500)
 
-st.info("💡 **Instructions du Formateur SNIM :** Utilisez le bouton violet pour basculer en vue extérieure afin de bien observer les mouvements du câble et du crochet. Veillez à ne pas trop descendre la flèche (sous la limite des 30°) pour éviter de déclencher l'alarme anti-basculement automatique.")
+st.info("💡 **Note technique :** Vous êtes au centre de la cabine de pilotage. Devant vous se trouvent le volant de manœuvre, l'écran de contrôle bleu et la manette de gauche. À travers le pare-brise, vous voyez le chantier extérieur et la grande flèche télescopique jaune s'animer.")
