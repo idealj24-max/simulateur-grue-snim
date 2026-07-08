@@ -15,12 +15,12 @@ st.markdown("""
 st.markdown("<h1>🏗️ SIMULATEUR GRUE 3D MULTI-VUES</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: #94a3b8;'>Module d'évaluation pour les centres de formation SNIM & KINROSS</p>", unsafe_allow_html=True)
 
-# 2. INTÉGRATION DE LA SCÈNE COMPLÈTE EN THREE.JS (MOTEUR GRAPHIQUE INTERACTIF)
+# 2. CODE DE RENDU 3D NETTOYÉ SANS COMMENTAIRES INTERSTICES
 code_simulateur_graphique = """
 <!DOCTYPE html>
 <html>
 <head>
-    <script src="https://cloudflare.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body { margin: 0; overflow: hidden; background-color: #0b0f19; font-family: sans-serif; }
         #canvas-container { width: 100%; height: 380px; position: relative; border-radius: 12px; overflow: hidden; border: 2px solid #f59e0b; }
@@ -54,37 +54,33 @@ code_simulateur_graphique = """
     <script>
         const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0f172a); // Ambiance de chantier
+        scene.background = new THREE.Color(0x0f172a);
 
-        // CONFIGURATION DES DEUX CAMÉRAS (VUE INTÉRIEURE ET VUE EXTÉRIEURE)
         const camCabine = new THREE.PerspectiveCamera(65, container.clientWidth / 380, 0.1, 1000);
-        camCabine.position.set(0, 1.5, -0.2); // Position exacte du grutier dans son siège
+        camCabine.position.set(0, 1.5, -0.2);
 
         const camChantier = new THREE.PerspectiveCamera(65, container.clientWidth / 380, 0.1, 1000);
-        camChantier.position.set(7, 6, 8); // Vue aérienne extérieure du site minier
+        camChantier.position.set(7, 6, 8);
         camChantier.lookAt(0, 3, -4);
 
-        let activeCamera = camCabine; // La caméra par défaut est la vue de l'intérieur
+        let activeCamera = camCabine;
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(container.clientWidth, 380);
         container.appendChild(renderer.domElement);
 
-        // SYSTÈME D'ÉCLAIRAGE
         const light = new THREE.AmbientLight(0xffffff, 0.8);
         scene.add(light);
         const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
         dirLight.position.set(10, 20, 10);
         scene.add(dirLight);
 
-        // 1. SOL DU SITE MINIÈRE DE LA SNIM
         const floorGeo = new THREE.PlaneGeometry(200, 200);
         const floorMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 });
         const floor = new THREE.Mesh(floorGeo, floorMat);
         floor.rotation.x = -Math.PI / 2;
         scene.add(floor);
 
-        // 2. LA CABINE DU PILOTE (MONTANTS ET TABLEAU DE BORD)
         const cabineMat = new THREE.MeshStandardMaterial({ color: 0x1e293b });
         const dashGeo = new THREE.BoxGeometry(1.6, 0.4, 0.5);
         const dash = new THREE.Mesh(dashGeo, cabineMat);
@@ -100,32 +96,27 @@ code_simulateur_graphique = """
         montantR.position.set(0.75, 1.6, -0.7);
         scene.add(montantR);
 
-        // 3. LA FLÈCHE TÉLESCOPIQUE JAUNE (TEREX / GROVE)
         const pivotFleche = new THREE.Group();
-        pivotFleche.position.set(0, 1.8, -0.9); // Axe de rotation au dessus du tableau de bord
+        pivotFleche.position.set(0, 1.8, -0.9);
         scene.add(pivotFleche);
 
         const flecheGeo = new THREE.BoxGeometry(0.4, 0.4, 10);
-        const flecheMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.3 }); // Jaune industriel
+        const flecheMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.3 });
         const flecheMesh = new THREE.Mesh(flecheGeo, flecheMat);
-        flecheMesh.position.set(0, 0, -5); // Positionnement le long de l'axe Z négatif
+        flecheMesh.position.set(0, 0, -5);
         pivotFleche.add(flecheMesh);
 
-        // 4. LE ENSEMBLE CÂBLE ET CROCHET AU BOUT DE LA FLÈCHE
         const pivotCrochet = new THREE.Group();
-        pivotCrochet.position.set(0, 0, -10); // Placé à l'extrémité de la flèche de 10m
+        pivotCrochet.position.set(0, 0, -10);
         pivotFleche.add(pivotCrochet);
 
-        // Création du câble métallique vertical
-        let longueurCable = 3.0; // Longueur initiale
+        let longueurCable = 3.0;
         const cableGeo = new THREE.CylinderGeometry(0.02, 0.02, longueurCable, 8);
-        const cableMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8 }); // Gris acier
+        const cableMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8 });
         const cableMesh = new THREE.Mesh(cableGeo, cableMat);
-        // Ajustement de la position pour que le câble descende verticalement
         cableMesh.position.y = -longueurCable / 2;
         pivotCrochet.add(cableMesh);
 
-        # Le Crochet de levage
         const crochetGeo = new THREE.TorusGeometry(0.15, 0.04, 8, 24, Math.PI);
         const crochetMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8 });
         const crochetMesh = new THREE.Mesh(crochetGeo, crochetMat);
@@ -133,51 +124,35 @@ code_simulateur_graphique = """
         crochetMesh.position.y = -longueurCable;
         pivotCrochet.add(crochetMesh);
 
-        // Position de départ sécurisée de la flèche inclinée
         pivotFleche.rotation.x = -0.6;
 
-        // ANIMATION ET SÉCURISATION DU RESTE DES AXES
         function animate() {
             requestAnimationFrame(animate);
-            
-            // Forcer le câble et le crochet à toujours rester parfaitement verticaux, peu importe l'inclinaison de la flèche
             pivotCrochet.quaternion.copy(pivotFleche.quaternion).invert();
-            
             renderer.render(scene, activeCamera);
         }
         animate();
 
-        // COMMANDE TACTILE 1 : CONFIGURATION DE LA FLÈCHE
         window.bougerFleche = function(valeur) {
             let futurAngle = pivotFleche.rotation.x + valeur;
-            // Limites angulaires de sécurité du constructeur (Entre ~15° et ~75°)
             if (futurAngle < -0.25 && futurAngle > -1.35) {
                 pivotFleche.rotation.x = futurAngle;
-                
                 let angleDegres = Math.round(Math.abs(pivotFleche.rotation.x) * (180 / Math.PI));
                 document.getElementById('angle-display').innerText = angleDegres;
                 analyserRisque(angleDegres);
             }
         }
 
-        // COMMANDE TACTILE 2 : CONTROLE DU CÂBLE / MOUFLAGE
         window.ajusterCable = function(valeur) {
             if (longueurCable + valeur >= 1.0 && longueurCable + valeur <= 6.5) {
                 longueurCable += valeur;
-                
-                // Redimensionner dynamiquement le câble
                 cableMesh.scale.y = longueurCable / 3.0;
                 cableMesh.position.y = -longueurCable / 2;
-                
-                // Repositionner le crochet à la base du câble modifié
                 crochetMesh.position.y = -longueurCable;
-                
-                // Mettre à jour l'afficheur CEC (affichage en cm relatifs)
                 document.getElementById('cable-display').innerText = Math.round((longueurCable - 3) * 100);
             }
         }
 
-        // COMMANDE TACTILE 3 : SWITCH CAMÉRA INTERACTIVE
         window.changerCamera = function() {
             if (activeCamera === camCabine) {
                 activeCamera = camChantier;
@@ -186,7 +161,6 @@ code_simulateur_graphique = """
             }
         }
 
-        // ORDINATEUR DE SÉCURITÉ EN TEMPS RÉEL (ALARMES CEC)
         function analyserRisque(angle) {
             const statusBox = document.getElementById('status-display');
             if (angle < 30) {
@@ -199,3 +173,20 @@ code_simulateur_graphique = """
                 statusBox.innerText = "SÉCURISÉ";
                 statusBox.style.color = "#22c55e";
             }
+        }
+
+        window.addEventListener('resize', () => {
+            camCabine.aspect = container.clientWidth / 380;
+            camCabine.updateProjectionMatrix();
+            camChantier.aspect = container.clientWidth / 380;
+            camChantier.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, 380);
+        });
+    </script>
+</body>
+</html>
+"""
+
+components.html(code_simulateur_graphique, height=480)
+
+st.info("💡 **Instructions du Formateur SNIM :** Utilisez le bouton violet pour basculer en vue extérieure afin de bien observer les mouvements du câble et du crochet. Veillez à ne pas trop descendre la flèche (sous la limite des 30°) pour éviter de déclencher l'alarme anti-basculement automatique.")
