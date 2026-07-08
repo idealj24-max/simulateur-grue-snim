@@ -12,33 +12,143 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h1>🏗️ SIMULATEUR COCKPIT GRUE 3D PRO</h1>", unsafe_allow_html=True)
+st.markdown("<h1>🏗️ SIMULATEUR COCKPIT GRUE PRO</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: #94a3b8; margin-top:-10px;'>Poste de pilotage virtuel avec commandes hydrauliques réactives</p>", unsafe_allow_html=True)
 
-# MOTEUR GRAPHIQUE INTERACTIF : COCKPIT + VOLANT + JOYSTICKS + FLECHE + CABLE + CROCHET
-code_simulateur_ultime = """
+# SIMULATEUR GRAPHIQUE NATIF INTÉGRÉ (FONCTIONNE SANS BIBLIOTHÈQUE EXTERNE)
+code_simulateur_natif = """
 <!DOCTYPE html>
 <html>
 <head>
-    <script src="https://cloudflare.com"></script>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #0b0f19; font-family: sans-serif; }
-        #canvas-container { width: 100%; height: 420px; position: relative; border-radius: 12px; overflow: hidden; border: 3px solid #f59e0b; }
+        body { margin: 0; padding: 0; background-color: #0f172a; font-family: sans-serif; overflow: hidden; }
+        
+        /* Fenêtre de la cabine */
+        #view-container { 
+            width: 100%; 
+            height: 300px; 
+            background: linear-gradient(to bottom, #bae6fd 0%, #e0f2fe 70%, #94a3b8 70%, #64748b 100%);
+            position: relative; 
+            border-radius: 12px; 
+            border: 3px solid #f59e0b;
+            overflow: hidden;
+        }
+
+        /* Décors extérieurs (Chantier SNIM) */
+        .conteneur-rouge {
+            width: 80px; height: 50px; background-color: #ef4444; position: absolute;
+            bottom: 35px; right: 40px; border-radius: 4px; border-bottom: 5px solid #b91c1c;
+        }
+
+        /* LA FLÈCHE DE LA GRUE (S'anime au mouvement) */
+        #fleche-grue {
+            width: 30px; 
+            height: 250px; 
+            background-color: #f59e0b; 
+            position: absolute;
+            bottom: 80px; 
+            left: 50%;
+            transform: translateX(-50%) rotate(35deg);
+            transform-origin: bottom center;
+            transition: transform 0.1s ease-out;
+            border-radius: 4px;
+            box-shadow: inset -5px 0px rgba(0,0,0,0.1);
+        }
+
+        /* LE CÂBLE DE LEVAGE (S'allonge) */
+        #cable-acier {
+            width: 2px;
+            height: 100px;
+            background-color: #475569;
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            transition: height 0.1s ease-out;
+        }
+
+        /* LE CROCHET DE LEVAGE */
+        #crochet {
+            width: 16px;
+            height: 16px;
+            border: 3px solid #1e293b;
+            border-radius: 50%;
+            position: absolute;
+            bottom: -16px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: transparent;
+        }
+
+        /* DESIGN DE L'INTÉRIEUR DU COCKPIT (Pare-brise et Montants) */
+        .cockpit-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            border: 15px solid #1e293b; box-sizing: border-box; pointer-events: none;
+        }
+        .tableau-bord {
+            width: 100%; height: 80px; background-color: #1e293b;
+            position: absolute; bottom: 0; left: 0; border-top: 4px solid #334155;
+        }
+        .volant {
+            width: 70px; height: 30px; border: 6px solid #475569; border-radius: 50%;
+            position: absolute; bottom: 25px; left: 20%; transform: rotateX(60deg);
+        }
+
+        /* LES LES JOYSTICKS D'ACCOUDOIR */
+        .manette-base {
+            width: 20px; height: 40px; background-color: #334155; position: absolute; bottom: 0;
+        }
+        #manette-g { left: 40px; }
+        #manette-d { right: 40px; }
+        .tige-manette {
+            width: 4px; height: 25px; background-color: #94a3b8; position: absolute;
+            top: -20px; left: 8px; transform-origin: bottom center; transition: transform 0.1s;
+        }
+
+        /* ORDINATEUR DE BORD CEC VISIBLE À L'ÉCRAN */
+        .telemetry-screen { 
+            position: absolute; top: 20px; left: 20px; 
+            background: rgba(15, 23, 42, 0.9); color: #38bdf8; 
+            padding: 8px; border-radius: 6px; font-family: monospace; 
+            font-size: 11px; pointer-events: none; border: 1px solid #334155; line-height: 1.4;
+            z-index: 10;
+        }
+
+        /* BOUTONS DE COMMANDE */
         .dashboard-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px; background: #1e293b; border-radius: 12px; margin-top: 10px; }
         .control-lever { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; border: none; padding: 14px; font-weight: bold; border-radius: 8px; font-size: 13px; box-shadow: 0 4px 6px rgba(0,0,0,0.4); touch-action: manipulation; }
         .control-lever:active { background: #d97706; }
-        .telemetry-screen { position: absolute; top: 12px; left: 12px; background: rgba(15, 23, 42, 0.9); color: #38bdf8; padding: 10px; border-radius: 6px; font-family: monospace; font-size: 11px; pointer-events: none; border: 1px solid #334155; line-height: 1.5; }
     </style>
 </head>
 <body>
 
-    <div id="canvas-container">
+    <div id="view-container">
+        <!-- Écran CEC -->
         <div class="telemetry-screen">
             💻 ORDINATEUR DE BORD CEC<br>
             -----------------------<br>
             • FLÈCHE : <span id="ang-txt">35</span>°<br>
             • CÂBLE : <span id="cab-txt">3.0</span> m<br>
-            • CHARGE : <span id="status-txt" style="color:#22c55e;">SÉCURISÉE</span>
+            • CHARGE : <span id="status-txt" style="color:#22c55e;font-weight:bold;">SÉCURISÉE</span>
+        </div>
+
+        <!-- Décors extérieurs vus à travers la vitre -->
+        <div class="conteneur-rouge"></div>
+
+        <!-- Le Bras articulé de la grue extérieure -->
+        <div id="fleche-grue">
+            <!-- Le Câble et le crochet suspendus au bout -->
+            <div id="cable-acier">
+                <div id="crochet"></div>
+            </div>
+        </div>
+
+        <!-- Cadre intérieur de la cabine grutier -->
+        <div class="cockpit-overlay"></div>
+        <div class="tableau-bord">
+            <div class="volant"></div>
+            <div class="manette-base" id="manette-g"><div class="tige-manette" id="tige-g"></div></div>
+            <div class="manette-base" id="manette-d"><div class="tige-manette" id="tige-d"></div></div>
         </div>
     </div>
 
@@ -50,163 +160,67 @@ code_simulateur_ultime = """
     </div>
 
     <script>
-        const container = document.getElementById('canvas-container');
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xbae6fd); // Ciel bleu de chantier
+        let currentAngle = 35;
+        let currentCable = 100; // en pixels
 
-        const camera = new THREE.PerspectiveCamera(60, container.clientWidth / 420, 0.1, 1000);
-        camera.position.set(0, 1.2, 0); // Position des yeux à l'intérieur du cockpit
+        const fleche = document.getElementById('fleche-grue');
+        const cable = document.getElementById('cable-acier');
+        const tigeG = document.getElementById('tige-g');
+        const tigeD = document.getElementById('tige-d');
+        
+        const angTxt = document.getElementById('ang-txt');
+        const cabTxt = document.getElementById('cab-txt');
+        const statusTxt = document.getElementById('status-txt');
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(container.clientWidth, 420);
-        container.appendChild(renderer.domElement);
-
-        const light = new THREE.AmbientLight(0xffffff, 0.9);
-        scene.add(light);
-        const dLight = new THREE.DirectionalLight(0xffffff, 0.4);
-        dLight.position.set(5, 15, 5);
-        scene.add(dLight);
-
-        // 1. SOL ET ENVIRONNEMENT EXTERIEUR
-        const groundGeo = new THREE.PlaneGeometry(300, 300);
-        const groundMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8 });
-        const ground = new THREE.Mesh(groundGeo, groundMat);
-        ground.rotation.x = -Math.PI / 2;
-        scene.add(ground);
-
-        // Élément de décor (Conteneur rouge sur le chantier)
-        const targetGeo = new THREE.BoxGeometry(3, 2.5, 5);
-        const targetMat = new THREE.MeshStandardMaterial({ color: 0xef4444 });
-        const conteneur = new THREE.Mesh(targetGeo, targetMat);
-        conteneur.position.set(4, 1.25, -12);
-        scene.add(conteneur);
-
-        // 2. INTERIEUR DE LA CABINE (TABLEAU DE BORD, VOLANT, JOYSTICKS)
-        const cabMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6 });
-        const steelMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.8 });
-
-        // Console centrale arrondie
-        const dashGeo = new THREE.CylinderGeometry(0.7, 0.7, 1.6, 16, 1, false, 0, Math.PI);
-        const dash = new THREE.Mesh(dashGeo, cabMat);
-        dash.rotation.z = Math.PI / 2;
-        dash.rotation.x = Math.PI / 2;
-        dash.position.set(0, 0.7, -0.6);
-        scene.add(dash);
-
-        // Volant de la grue mobile
-        const steerGeo = new THREE.TorusGeometry(0.16, 0.02, 6, 18);
-        const volant = new THREE.Mesh(steerGeo, steelMat);
-        volant.position.set(-0.35, 0.8, -0.5);
-        volant.rotation.x = 1.1;
-        scene.add(volant);
-
-        // Supports des Joysticks d'accoudoir
-        const baseJoyL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.25, 0.25), cabMat);
-        baseJoyL.position.set(-0.6, 0.6, -0.1);
-        scene.add(baseJoyL);
-        const baseJoyR = baseJoyL.clone();
-        baseJoyR.position.set(0.6, 0.6, -0.1);
-        scene.add(baseJoyR);
-
-        // Tiges physiques des Joysticks
-        const stickGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.18);
-        const joystickG = new THREE.Mesh(stickGeo, steelMat);
-        joystickG.position.set(-0.6, 0.72, -0.1);
-        scene.add(joystickG);
-        const joystickD = joystickG.clone();
-        joystickD.position.set(0.6, 0.72, -0.1);
-        scene.add(joystickD);
-
-        // 3. LA FLÈCHE JAUNE EXTÉRIEURE TEREX / GROVE
-        const pivotFleche = new THREE.Group();
-        pivotFleche.position.set(0, 1.6, -1.1); // Sortie à l'avant du pare-brise
-        scene.add(pivotFleche);
-
-        const flecheMesh = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 12), new THREE.MeshStandardMaterial({ color: 0xf59e0b }));
-        flecheMesh.position.set(0, 0, -6);
-        pivotFleche.add(flecheMesh);
-
-        // 4. LE MECANISME CÂBLE ET CROCHET
-        const pivotCrochet = new THREE.Group();
-        pivotCrochet.position.set(0, 0, -12); // Fixé au bout de la flèche de 12m
-        pivotFleche.add(pivotCrochet);
-
-        let longCable = 3.5;
-        const cableGeo = new THREE.CylinderGeometry(0.015, 0.015, 1, 6);
-        const cableMesh = new THREE.Mesh(cableGeo, new THREE.MeshStandardMaterial({ color: 0x64748b }));
-        pivotCrochet.add(cableMesh);
-
-        const crochetMesh = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.03, 6, 16, Math.PI), new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.9 }));
-        crochetMesh.rotation.x = Math.PI;
-        pivotCrochet.add(crochetMesh);
-
-        // Position d'inclinaison initiale de la grue
-        pivotFleche.rotation.x = -0.6;
-
-        function rafraichirCable() {
-            cableMesh.scale.y = longCable;
-            cableMesh.position.y = -longCable / 2;
-            crochetMesh.position.y = -longCable;
-            document.getElementById('cab-txt').innerText = longCable.toFixed(1);
-        }
-        rafraichirCable();
-
-        // BOUCLE PRINCIPALE D'ANIMATION GRAPHIQUE
-        function animate() {
-            requestAnimationFrame(animate);
-            // Assure que le câble descend toujours verticalement vers le sol
-            pivotCrochet.quaternion.copy(pivotFleche.quaternion).invert();
-            renderer.render(scene, camera);
-        }
-        animate();
-
-        // ACTIONNEMENT DES LEVIERS DE LA CABINE
         window.piloterGrue = function(action) {
-            if (action === 'lever' && pivotFleche.rotation.x > -1.35) {
-                pivotFleche.rotation.x -= 0.02;
-                joystickG.rotation.x = -0.3; // Incliner manette gauche vers l'avant
-            } 
-            else if (action === 'baisser' && pivotFleche.rotation.x < -0.2) {
-                pivotFleche.rotation.x += 0.02;
-                joystickG.rotation.x = 0.3; // Incliner manette gauche vers l'arrière
-            } 
-            else if (action === 'derouler' && longCable < 7.0) {
-                longCable += 0.15;
-                rafraichirCable();
-                joystickD.rotation.x = 0.3; // Incliner manette droite
-            } 
-            else if (action === 'enrouler' && longCable > 1.2) {
-                longCable -= 0.15;
-                rafraichirCable();
-                joystickD.rotation.x = -0.3;
+            if (action === 'lever' && currentAngle < 75) {
+                currentAngle += 2;
+                tigeG.style.transform = "rotateX(-25deg)";
+            } else if (action === 'baisser' && currentAngle > 15) {
+                currentAngle -= 2;
+                tigeG.style.transform = "rotateX(25deg)";
+            } else if (action === 'derouler' && currentCable < 180) {
+                currentCable += 10;
+                tigeD.style.transform = "rotateX(25deg)";
+            } else if (action === 'enrouler' && currentCable > 40) {
+                currentCable -= 10;
+                tigeD.style.transform = "rotateX(-25deg)";
             }
 
-            // Calcul de l'angle et mise à jour de la sécurité
-            let deg = Math.round(Math.abs(pivotFleche.rotation.x) * (180 / Math.PI));
-            document.getElementById('ang-txt').innerText = deg;
-            
-            const stTxt = document.getElementById('status-txt');
-            if (deg < 32) {
-                stTxt.innerText = "🚨 CRITIQUE !";
-                stTxt.style.color = "#ef4444";
+            // Animation visuelle de la flèche et du câble
+            // On compense la rotation de la flèche pour que le câble descende toujours verticalement
+            fleche.style.transform = "translateX(-50%) rotate(" + (90 - currentAngle) + "deg)";
+            cable.style.transform = "translateX(-50%) rotate(" + -(90 - currentAngle) + "deg)";
+            cable.style.height = currentCable + "px";
+
+            // Mise à jour de l'ordinateur de bord
+            angTxt.innerText = currentAngle;
+            cabTxt.innerText = (currentCable / 33).toFixed(1);
+
+            // Système d'alarme de sécurité
+            if (currentAngle < 32) {
+                statusTxt.innerText = "🚨 CRITIQUE !";
+                statusTxt.style.color = "#ef4444";
             } else {
-                stTxt.innerText = "SÉCURISÉE";
-                stTxt.style.color = "#22c55e";
+                statusTxt.innerText = "SÉCURISÉE";
+                statusTxt.style.color = "#22c55e";
             }
 
-            // Retour automatique des joysticks au point mort après l'action
-            setTimeout(() => { joystickG.rotation.x = 0; joystickD.rotation.x = 0; }, 120);
+            // Retour automatique des manettes physiques au point mort
+            setTimeout(() => {
+                tigeG.style.transform = "rotateX(0deg)";
+                tigeD.style.transform = "rotateX(0deg)";
+            }, 150);
         }
 
-        window.addEventListener('resize', () => {
-            camera.aspect = container.clientWidth / 420;
-            camera.updateProjectionMatrix();
-            renderer.setSize(container.clientWidth, 420);
-        });
+        // Configuration initiale de la grue au démarrage
+        fleche.style.transform = "translateX(-50%) rotate(" + (90 - currentAngle) + "deg)";
+        cable.style.transform = "translateX(-50%) rotate(" + -(90 - currentAngle) + "deg)";
     </script>
 </body>
 </html>
 """
 
-components.html(code_simulateur_ultime, height=520)
+components.html(code_simulateur_natif, height=480)
 
+st.info("⚠️ **Mise à jour réussie :** Le moteur d'affichage a été converti pour s'adapter parfaitement aux écrans des smartphones. Si le rectangle noir persiste, rafraîchissez simplement la page sur votre téléphone.")
