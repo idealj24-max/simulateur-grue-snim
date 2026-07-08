@@ -1,159 +1,201 @@
 import streamlit as st
-import time
+import streamlit.components.v1 as components
 
-# 1. CONFIGURATION DE L'INTERFACE SIMULATEUR
-st.set_page_config(page_title="Simulateur Grue SNIM Pro", page_icon="🏗️", layout="centered")
+# 1. CONFIGURATION DE L'INTERFACE MOBILE
+st.set_page_config(page_title="Simulateur 3D Grue SNIM Pro", page_icon="🏗️", layout="centered")
 
 st.markdown("""
     <style>
-    .main { background-color: #0f172a; color: #f8fafc; }
-    .stApp { background-color: #0f172a; }
-    h1 { color: #f59e0b; text-align: center; font-family: 'Arial Black', sans-serif; font-size: 24px; }
-    h2 { color: #38bdf8; font-size: 18px; }
-    .success-box { background-color: #14532d; padding: 15px; border-radius: 8px; border: 2px solid #22c55e; color: #f0fdf4; }
-    .danger-box { background-color: #7f1d1d; padding: 15px; border-radius: 8px; border: 2px solid #ef4444; color: #fef2f2; }
-    .warning-box { background-color: #78350f; padding: 15px; border-radius: 8px; border: 2px solid #eab308; color: #fffbeb; }
-    .score-text { font-size: 24px; font-weight: bold; text-align: center; color: #38bdf8; }
+    .main { background-color: #0b0f19; color: #f3f4f6; }
+    h1 { color: #f59e0b; text-align: center; font-family: 'Arial Black', sans-serif; font-size: 22px; margin-bottom: 0px; }
+    .stApp { background-color: #0b0f19; }
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<div style='text-align: center; font-size: 45px;'>🏗️🎓⚡</div>", unsafe_allow_html=True)
-st.markdown("<h1>SIMULATEUR DE LEVAGE & SYSTÈME D'EXAMEN v2.0</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #94a3b8;'>Centre de Formation Technique SNIM - Grue Mobile Terex & Grove</p>", unsafe_allow_html=True)
+st.markdown("<h1>🏗️ SIMULATEUR GRUE 3D MULTI-VUES</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #94a3b8;'>Module d'évaluation pour les centres de formation SNIM & KINROSS</p>", unsafe_allow_html=True)
 
-# 2. CONFIGURATION DE LA MACHINE (PANNEAU LATÉRAL)
-st.sidebar.markdown("### 🎛️ CONFIGURATION DE LA GRUE")
-modele_grue = st.sidebar.selectbox("Sélectionnez le modèle de grue :", ["Terex Demag AC 100 (100 Tonnes)", "Grove GMK 5130 (130 Tonnes)"])
+# 2. INTÉGRATION DE LA SCÈNE COMPLÈTE EN THREE.JS (MOTEUR GRAPHIQUE INTERACTIF)
+code_simulateur_graphique = """
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cloudflare.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #0b0f19; font-family: sans-serif; }
+        #canvas-container { width: 100%; height: 380px; position: relative; border-radius: 12px; overflow: hidden; border: 2px solid #f59e0b; }
+        .controls-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px; background: #1e293b; border-radius: 12px; margin-top: 10px; }
+        .btn-joystick { background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%); color: white; border: none; padding: 12px; font-weight: bold; border-radius: 8px; font-size: 14px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); touch-action: manipulation; }
+        .btn-joystick:active { background: #0284c7; }
+        .btn-cam { background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%) !important; grid-column: span 2; }
+        .telemetry { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.85); color: #38bdf8; padding: 10px; border-radius: 6px; font-family: monospace; font-size: 11px; pointer-events: none; border: 1px solid #334155; line-height: 1.4; }
+    </style>
+</head>
+<body>
 
-if "Terex" in modele_grue:
-    capacite_max = 100.0
-    longueur_fleche_max = 50
-    rayon_max = 40
-else:
-    capacite_max = 130.0
-    longueur_fleche_max = 60
-    rayon_max = 48
+    <div id="canvas-container">
+        <div class="telemetry">
+            📊 ÉCRAN DE BORD ORDINATEUR CEC<br>
+            ---------------------------<br>
+            • STATUT : <span id="status-display" style="color:#22c55e; font-weight:bold;">SÉCURISÉ</span><br>
+            • ANGLE DE FLÈCHE : <span id="angle-display">30</span>°<br>
+            • RELEVAGE CÂBLE : <span id="cable-display">0</span> cm
+        </div>
+    </div>
 
-# 3. INTERFACE COMMANDES EN CABINE
-st.markdown("---")
-st.markdown("## 🕹️ Commandes de la Cabine & Environnement")
+    <div class="controls-panel">
+        <button class="btn-joystick" onclick="bougerFleche(0.015)">🕹️ LEVER LA FLÈCHE</button>
+        <button class="btn-joystick" onclick="bougerFleche(-0.015)">🕹️ BAISSER LA FLÈCHE</button>
+        <button class="btn-joystick" onclick="ajusterCable(-0.1)">🪝 ENROULER LE CÂBLE</button>
+        <button class="btn-joystick" onclick="ajusterCable(0.1)">🪝 DÉROULER LE CÂBLE</button>
+        <button class="btn-joystick btn-cam" onclick="changerCamera()">🎥 CHANGER DE VUE (CABINE / CHANTIER)</button>
+    </div>
 
-col1, col2 = st.columns(2)
-with col1:
-    poids_charge = st.number_input("Poids de la charge à lever (en Tonnes) :", min_value=0.5, max_value=200.0, value=12.0, step=0.5)
-    longueur_fleche = st.slider("Longueur de la flèche déployée (mètres) :", min_value=10, max_value=longueur_fleche_max, value=25)
-    rayon_travail = st.slider("Rayon de travail / Portée (mètres) :", min_value=3, max_value=rayon_max, value=12)
+    <script>
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0f172a); // Ambiance de chantier
 
-with col2:
-    stabilisateurs = st.radio("Déploiement des stabilisateurs (Outriggers) :", ["0% (Sur pneus)", "50% Étroit", "100% Pleine extension"])
-    st.markdown("**⚠️ Éléments Environnementaux Critiques :**")
-    vitesse_vent = st.slider("Vitesse du vent détectée par l'anémomètre (m/s) :", min_value=0, max_value=25, value=6)
-    lignes_electriques = st.radio("Présence de lignes électriques haute tension à proximité :", ["Non", "Oui (Moins de 6 mètres sans coupure de ligne)"])
-    etat_elingues = st.radio("État du matériel de levage (Élingues/Manilles) :", ["Parfait état (Vérifiées)", "Usées / Légers fils coupés (Non vérifiées)"])
+        // CONFIGURATION DES DEUX CAMÉRAS (VUE INTÉRIEURE ET VUE EXTÉRIEURE)
+        const camCabine = new THREE.PerspectiveCamera(65, container.clientWidth / 380, 0.1, 1000);
+        camCabine.position.set(0, 1.5, -0.2); // Position exacte du grutier dans son siège
 
-# 4. CHECK-LIST DE SÉCURITÉ OBLIGATOIRE
-st.markdown("### 🔍 Check-list Obligatoire de l'Élève")
-col_chk1, col_chk2 = st.columns(2)
-with col_chk1:
-    calage_ok = st.checkbox("Plaques de calage installées sous les vérins")
-with col_chk2:
-    zone_balisee = st.checkbox("Zone de pivotement balisée (Risque de coincement)")
+        const camChantier = new THREE.PerspectiveCamera(65, container.clientWidth / 380, 0.1, 1000);
+        camChantier.position.set(7, 6, 8); // Vue aérienne extérieure du site minier
+        camChantier.lookAt(0, 3, -4);
 
-# 5. MOTEUR DE PHYSIQUE ET PARAMÈTRES DE CALCUL
-facteur_securite = 1.0
-if stabilisateurs == "0% (Sur pneus)":
-    facteur_securite = 0.15
-elif stabilisateurs == "50% Étroit":
-    facteur_securite = 0.60
+        let activeCamera = camCabine; // La caméra par défaut est la vue de l'intérieur
 
-capacite_reelle_autorisee = (capacite_max * (12 / (rayon_travail + (longueur_fleche * 0.1)))) * facteur_securite
-capacite_reelle_autorisee = min(capacite_reelle_autorisee, capacite_max)
-pourcentage_utilisation = (poids_charge / capacite_reelle_autorisee) * 100
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, 380);
+        container.appendChild(renderer.domElement);
 
-# 6. ENCLENCHEMENT DU LEVAGE ET NOTATION DU CANDIDAT
-st.markdown("---")
-if st.button("🚀 ENCLENCHER LA MANOEUVRE DE LEVAGE EXAMEN"):
-    with st.spinner("Analyse des paramètres de levage en cours..."):
-        time.sleep(2)
-        
-        # Initialisation du barème de notation sur 20 points
-        score = 20
-        erreurs = []
-        accident_majeur = False
-        cause_accident = ""
+        // SYSTÈME D'ÉCLAIRAGE
+        const light = new THREE.AmbientLight(0xffffff, 0.8);
+        scene.add(light);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+        dirLight.position.set(10, 20, 10);
+        scene.add(dirLight);
 
-        # Détection des fautes de sécurité et calcul du score
-        if not calage_ok:
-            score -= 4
-            erreurs.append("Oubli des plaques de calage (Risque d'enfoncement du sol).")
-        if not zone_balisee:
-            score -= 3
-            erreurs.append("Zone de pivotement non balisée (Danger pour le personnel au sol).")
+        // 1. SOL DU SITE MINIÈRE DE LA SNIM
+        const floorGeo = new THREE.PlaneGeometry(200, 200);
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        scene.add(floor);
+
+        // 2. LA CABINE DU PILOTE (MONTANTS ET TABLEAU DE BORD)
+        const cabineMat = new THREE.MeshStandardMaterial({ color: 0x1e293b });
+        const dashGeo = new THREE.BoxGeometry(1.6, 0.4, 0.5);
+        const dash = new THREE.Mesh(dashGeo, cabineMat);
+        dash.position.set(0, 0.9, -0.6);
+        scene.add(dash);
+
+        const montantLGeo = new THREE.BoxGeometry(0.06, 2.5, 0.06);
+        const montantL = new THREE.Mesh(montantLGeo, cabineMat);
+        montantL.position.set(-0.75, 1.6, -0.7);
+        scene.add(montantL);
+
+        const montantR = montantL.clone();
+        montantR.position.set(0.75, 1.6, -0.7);
+        scene.add(montantR);
+
+        // 3. LA FLÈCHE TÉLESCOPIQUE JAUNE (TEREX / GROVE)
+        const pivotFleche = new THREE.Group();
+        pivotFleche.position.set(0, 1.8, -0.9); // Axe de rotation au dessus du tableau de bord
+        scene.add(pivotFleche);
+
+        const flecheGeo = new THREE.BoxGeometry(0.4, 0.4, 10);
+        const flecheMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.3 }); // Jaune industriel
+        const flecheMesh = new THREE.Mesh(flecheGeo, flecheMat);
+        flecheMesh.position.set(0, 0, -5); // Positionnement le long de l'axe Z négatif
+        pivotFleche.add(flecheMesh);
+
+        // 4. LE ENSEMBLE CÂBLE ET CROCHET AU BOUT DE LA FLÈCHE
+        const pivotCrochet = new THREE.Group();
+        pivotCrochet.position.set(0, 0, -10); // Placé à l'extrémité de la flèche de 10m
+        pivotFleche.add(pivotCrochet);
+
+        // Création du câble métallique vertical
+        let longueurCable = 3.0; // Longueur initiale
+        const cableGeo = new THREE.CylinderGeometry(0.02, 0.02, longueurCable, 8);
+        const cableMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8 }); // Gris acier
+        const cableMesh = new THREE.Mesh(cableGeo, cableMat);
+        // Ajustement de la position pour que le câble descende verticalement
+        cableMesh.position.y = -longueurCable / 2;
+        pivotCrochet.add(cableMesh);
+
+        # Le Crochet de levage
+        const crochetGeo = new THREE.TorusGeometry(0.15, 0.04, 8, 24, Math.PI);
+        const crochetMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8 });
+        const crochetMesh = new THREE.Mesh(crochetGeo, crochetMat);
+        crochetMesh.rotation.x = Math.PI;
+        crochetMesh.position.y = -longueurCable;
+        pivotCrochet.add(crochetMesh);
+
+        // Position de départ sécurisée de la flèche inclinée
+        pivotFleche.rotation.x = -0.6;
+
+        // ANIMATION ET SÉCURISATION DU RESTE DES AXES
+        function animate() {
+            requestAnimationFrame(animate);
             
-        # ACCIDENT 1 : Surcharge (Bascule de l'engin)
-        if pourcentage_utilisation > 100:
-            accident_majeur = True
-            score = 0
-            cause_accident = f"🚨 SURCHARGE CRITIQUE : Le CEC affiche {pourcentage_utilisation:.1f}%. La grue {modele_grue} a basculé vers l'avant. La charge est trop lourde pour le rayon de travail sélectionné."
+            // Forcer le câble et le crochet à toujours rester parfaitement verticaux, peu importe l'inclinaison de la flèche
+            pivotCrochet.quaternion.copy(pivotFleche.quaternion).invert();
             
-        # ACCIDENT 2 : Lignes Électriques Haute Tension
-        elif lignes_electriques == "Oui (Moins de 6 mètres sans coupure de ligne)":
-            accident_majeur = True
-            score = 0
-            cause_accident = "⚡ ÉLECTROCUTION : Arc électrique formé entre la flèche de la grue et la ligne haute tension. Risque mortel immédiat pour le grutier et le chef de manœuvre."
-            
-        # ACCIDENT 3 : Rupture d'élingue
-        elif etat_elingues == "Usées / Légers fils coupés (Non vérifiées)":
-            accident_majeur = True
-            score = 0
-            cause_accident = "💥 RUPTURE DE CHARGE : Les élingues endommagées ont cédé sous la tension. La charge a chuté au sol, détruisant le matériel."
+            renderer.render(scene, activeCamera);
+        }
+        animate();
 
-        # ACCIDENT 4 : Vent Violent (Effet de voile)
-        elif vitesse_vent > 9:
-            accident_majeur = True
-            score = 0
-            cause_accident = f"💨 FORCE DU VENT CRITIQUE : Levage interdit à {vitesse_vent} m/s (Maximum autorisé : 9 m/s). Le vent a déporté la charge hors de l'axe, provoquant la torsion de la flèche télescopique."
+        // COMMANDE TACTILE 1 : CONFIGURATION DE LA FLÈCHE
+        window.bougerFleche = function(valeur) {
+            let futurAngle = pivotFleche.rotation.x + valeur;
+            // Limites angulaires de sécurité du constructeur (Entre ~15° et ~75°)
+            if (futurAngle < -0.25 && futurAngle > -1.35) {
+                pivotFleche.rotation.x = futurAngle;
+                
+                let angleDegres = Math.round(Math.abs(pivotFleche.rotation.x) * (180 / Math.PI));
+                document.getElementById('angle-display').innerText = angleDegres;
+                analyserRisque(angleDegres);
+            }
+        }
 
-        # Pénalité zone orange (Sûreté limite)
-        elif pourcentage_utilisation > 85:
-            score -= 3
-            erreurs.append("Levage en zone critique (Supérieur à 85% de la capacité maximale).")
+        // COMMANDE TACTILE 2 : CONTROLE DU CÂBLE / MOUFLAGE
+        window.ajusterCable = function(valeur) {
+            if (longueurCable + valeur >= 1.0 && longueurCable + valeur <= 6.5) {
+                longueurCable += valeur;
+                
+                // Redimensionner dynamiquement le câble
+                cableMesh.scale.y = longueurCable / 3.0;
+                cableMesh.position.y = -longueurCable / 2;
+                
+                // Repositionner le crochet à la base du câble modifié
+                crochetMesh.position.y = -longueurCable;
+                
+                // Mettre à jour l'afficheur CEC (affichage en cm relatifs)
+                document.getElementById('cable-display').innerText = Math.round((longueurCable - 3) * 100);
+            }
+        }
 
-        # 7. AFFICHAGE DES RÉSULTATS DE L'EXAMEN
-        st.markdown("## 📊 Verdict de la Commission d'Évaluation SNIM")
-        
-        if accident_majeur:
-            st.markdown(f"""
-                <div class='danger-box'>
-                    <h3>❌ ÉCHEC CRITIQUE : ACCIDENT MAJEUR SUR LE CHANTIER</h3>
-                    <p>{cause_accident}</p>
-                    <p class='score-text'>NOTE FINALE : {score}/20</p>
-                </div>
-            """, unsafe_allow_html=True)
-        else:
-            if score == 20:
-                st.markdown(f"""
-                    <div class='success-box'>
-                        <h3>✅ EXAMEN RÉUSSI - SANS FAUTE</h3>
-                        <p>Le levage s'est déroulé en parfaite conformité avec les règles de sécurité constructeur de la grue {modele_grue}.</p>
-                        <p class='score-text'>NOTE FINALE : {score}/20 (Mention Excellent)</p>
-                    </div>
-                """, unsafe_allow_html=True)
-            elif score >= 12:
-                st.markdown(f"""
-                    <div class='warning-box'>
-                        <h3>⚠️ EXAMEN RÉUSSI AVECAVERTISSEMENTS</h3>
-                        <p>La charge a été déplacée, mais des fautes opérationnelles ou de sécurité ont été commises.</p>
-                        <p><b>Pénalités appliquées :</b> {" | ".join(erreurs)}</p>
-                        <p class='score-text'>NOTE FINALE : {score}/20 (Mention Passable)</p>
-                    </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown(f"""
-                    <div class='danger-box'>
-                        <h3>❌ EXAMEN ÉCHOUÉ (Note insuffisante)</h3>
-                        <p>Le candidat a commis trop d'infractions de sécurité pour être validé sur le terrain.</p>
-                        <p><b>Fautes commises :</b> {" | ".join(erreurs)}</p>
-                        <p class='score-text'>NOTE FINALE : {score}/20</p>
-                    </div>
-                """, unsafe_allow_html=True)
+        // COMMANDE TACTILE 3 : SWITCH CAMÉRA INTERACTIVE
+        window.changerCamera = function() {
+            if (activeCamera === camCabine) {
+                activeCamera = camChantier;
+            } else {
+                activeCamera = camCabine;
+            }
+        }
+
+        // ORDINATEUR DE SÉCURITÉ EN TEMPS RÉEL (ALARMES CEC)
+        function analyserRisque(angle) {
+            const statusBox = document.getElementById('status-display');
+            if (angle < 30) {
+                statusBox.innerText = "🚨 ALARME SURCHARGE / BASCULEMENT !";
+                statusBox.style.color = "#ef4444";
+            } else if (angle < 45) {
+                statusBox.innerText = "⚠️ ATTENTION PORTEE LIMITE";
+                statusBox.style.color = "#eab308";
+            } else {
+                statusBox.innerText = "SÉCURISÉ";
+                statusBox.style.color = "#22c55e";
+            }
